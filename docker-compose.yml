@@ -1,0 +1,114 @@
+version: "3"
+
+services:
+  starrocks-fe:
+    image: starrocks/fe-ubuntu:3.3-latest
+    env_file:
+      - .env
+    hostname: starrocks-fe
+    container_name: starrocks-fe
+    user: root
+    command: |
+      sh /opt/starrocks/fe/bin/start_fe.sh
+    ports:
+      - 8030:8030
+      - 9020:9020
+      - 9030:9030
+    networks:
+      iceberg_net:
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+    healthcheck:
+      test: 'mysql -u root -h starrocks-fe -P 9030 -e "SHOW FRONTENDS\G" |grep "Alive: true"'
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  starrocks-cn:
+    image: starrocks/cn-ubuntu:3.3-latest
+    command:
+      - /bin/bash
+      - -c
+      - |
+        ulimit -u 65535;
+        ulimit -n 65535;
+        echo "# Enable data cache"  >> /opt/starrocks/cn/conf/cn.conf
+        echo "datacache_enable = true"  >> /opt/starrocks/cn/conf/cn.conf
+        echo "datacache_mem_size = 80%" >> /opt/starrocks/cn/conf/cn.conf
+        echo "datacache_disk_size = 80%" >> /opt/starrocks/cn/conf/cn.conf
+        echo "datacache_auto_adjust_enable = true" >> /opt/starrocks/cn/conf/cn.conf
+        echo "starlet_use_star_cache = true" >> /opt/starrocks/cn/conf/cn.conf
+        echo "starlet_star_cache_disk_size_percent = 80" >> /opt/starrocks/cn/conf/cn.conf
+        echo "lake_compaction_stream_buffer_size_bytes = 5000000000" >> /opt/starrocks/cn/conf/cn.conf
+        sleep 15s
+        mysql --connect-timeout 2 -h starrocks-fe -P 9030 -u root -e "ALTER SYSTEM ADD BACKEND \"starrocks-cn:9050\";"
+        /opt/starrocks/cn/bin/start_cn.sh
+    ports:
+      - 8040:8040
+    hostname: starrocks-cn
+    container_name: starrocks-cn
+    user: root
+    depends_on:
+      - starrocks-fe
+    healthcheck:
+      test: 'mysql -u root -h starrocks-fe -P 9030 -e "SHOW BACKENDS\G" |grep "Alive: true"'
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      iceberg_net:
+
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    networks:
+      iceberg_net:
+        aliases:
+          - postgres
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  rest:
+    image: tabulario/iceberg-rest:latest
+    env_file:
+      - .env
+    container_name: iceberg-rest
+    networks:
+      iceberg_net:
+        aliases:
+          - iceberg-rest
+    ports:
+      - 8181:8181
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_DEFAULT_REGION=${AWS_REGION}
+      - CATALOG_WAREHOUSE=${CATALOG_WAREHOUSE}
+      - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
+      - CATALOG_URI=jdbc:postgresql://postgres:5432/postgres
+      - CATALOG_JDBC_USER=postgres
+      - CATALOG_JDBC_PASSWORD=postgres
+      - CATALOG_JDBC_INITIALIZE=true
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+networks:
+  iceberg_net:
+
+volumes:
+  postgres_data:

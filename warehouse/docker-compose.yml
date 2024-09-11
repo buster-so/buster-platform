@@ -4,7 +4,7 @@ services:
   starrocks-fe:
     image: starrocks/fe-ubuntu:3.3-latest
     env_file:
-      - .env
+      - ../.env
     hostname: starrocks-fe
     container_name: starrocks-fe
     user: root
@@ -84,7 +84,7 @@ services:
   rest:
     image: tabulario/iceberg-rest:latest
     env_file:
-      - .env
+      - ../.env
     container_name: iceberg-rest
     networks:
       iceberg_net:

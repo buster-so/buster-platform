@@ -80,9 +80,10 @@ For data that you think will be accessed frequently, you can cache it on disk fo
 CACHE SELECT * FROM public.nyc_taxi WHERE tpep_pickup_datetime > '2022-03-01';
 ```
 
-## Deployment
+## Deployment on AWS
 
-TODO
+WIP
+
 
 ## Shoutouts
 

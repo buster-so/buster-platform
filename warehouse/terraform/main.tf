@@ -178,7 +178,46 @@ resource "aws_security_group" "be_sg" {
   }
 }
 
-// EKS Cluster
+locals {
+  node_groups = {
+    fe_group = {
+      instance_type = "t3.small"
+      min_size      = 1
+      max_size      = 1
+      desired_size  = 1
+      disk_size     = 200
+    },
+    be_group = {
+      instance_type = "t3.small"
+      min_size      = 1
+      max_size      = 1
+      desired_size  = 1
+      disk_size     = 1000
+    },
+    lb_group = {
+      instance_type = "t3.small"
+      min_size      = 1
+      max_size      = 1
+      desired_size  = 1
+      disk_size     = 20
+    }
+    postgresql_group = {
+      instance_type = "t3.small"
+      min_size      = 1
+      max_size      = 1
+      desired_size  = 1
+      disk_size     = 20
+    }
+    iceberg_rest_group = {
+      instance_type = "t3.small"
+      min_size      = 1
+      max_size      = 1
+      desired_size  = 1
+      disk_size     = 20
+    }
+  }
+}
+
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "18.26.3"
@@ -194,7 +233,7 @@ module "eks" {
   }
 
   eks_managed_node_groups = {
-    for key, value in var.node_groups :
+    for key, value in local.node_groups :
     key => {
       instance_types = [value.instance_type]
       min_size       = value.min_size
@@ -220,6 +259,50 @@ module "eks" {
       ]
     }
   }
+
+  manage_aws_auth_configmap = true
+  aws_auth_roles = [
+    {
+      rolearn  = aws_iam_role.eks_node_group_role.arn
+      username = "system:node:{{EC2PrivateDNSName}}"
+      groups   = ["system:bootstrappers", "system:nodes"]
+    }
+  ]
+
+  # Add this line to shorten the IAM role name prefix
+  iam_role_name = "eks-cluster-role"
+}
+
+resource "aws_iam_role" "eks_node_group_role" {
+  name = "eks-node-group-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
+  role       = aws_iam_role.eks_node_group_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
+  role       = aws_iam_role.eks_node_group_role.name
+}
+
+resource "aws_iam_role_policy_attachment" "eks_container_registry_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+  role       = aws_iam_role.eks_node_group_role.name
 }
 
 // Application Load Balancer
@@ -347,7 +430,7 @@ resource "helm_release" "starrocks" {
   namespace  = kubernetes_namespace.starrocks.metadata[0].name
 
   values = [
-    file("${path.module}/default.yaml")
+    file("../helm_values/starrocks.yaml")
   ]
 
   depends_on = [module.eks, kubernetes_namespace.starrocks]
@@ -445,8 +528,6 @@ resource "kubernetes_namespace" "iceberg_rest" {
   depends_on = [module.eks]
 }
 
-// ... existing code ...
-
 // Helm Release for Nginx Ingress Controller
 resource "helm_release" "nginx_ingress" {
   name       = "buster-warehouse-nginx-ingress"
@@ -480,5 +561,3 @@ resource "kubernetes_namespace" "nginx_ingress" {
 
   depends_on = [module.eks]
 }
-
-// ... rest of the existing code ...

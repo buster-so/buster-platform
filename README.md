@@ -9,10 +9,10 @@
          <a href="https://www.buster.so/get-started">
             <strong>Sign up</strong>
          </a> · 
-         <a href="https://github.com/buster-labs/buster-warehouse">
+         <a href="#quickstart">
             <strong>Quickstart</strong>
          </a> · 
-         <a href="https://github.com/buster-labs/buster-warehouse">
+         <a href="#deployment">
             <strong>Deployment</strong>
          </a>
       </h3>
@@ -106,6 +106,10 @@ For data that you think will be accessed frequently, you can cache it on disk fo
 ```sql
 CACHE SELECT * FROM public.nyc_taxi WHERE tpep_pickup_datetime > '2022-03-01';
 ```
+
+## Deployment
+
+TODO
 
 ## Roadmap
 

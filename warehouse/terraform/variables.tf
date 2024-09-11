@@ -3,7 +3,7 @@ variable "region" {
 }
 
 variable "cluster_name" {
-  default = "my-eks-cluster"
+  default = "buster-warehouse"
 }
 
 variable "vpc_cidr" {
@@ -27,27 +27,47 @@ variable "node_groups" {
   }))
   default = {
     fe_group = {
-      instance_type = "r6g.2xlarge"
+      instance_type = "t3.small"
       min_size      = 1
-      max_size      = 3
-      desired_size  = 2
+      max_size      = 1
+      desired_size  = 1
       disk_size     = 200
     },
     be_group = {
-      instance_type = "r6g.4xlarge"
+      instance_type = "t3.small"
       min_size      = 1
-      max_size      = 3
-      desired_size  = 2
+      max_size      = 1
+      desired_size  = 1
       disk_size     = 1000
     },
     lb_group = {
       instance_type = "t3.small"
       min_size      = 1
-      max_size      = 2
+      max_size      = 1
+      desired_size  = 1
+      disk_size     = 20
+    }
+    postgresql_group = {
+      instance_type = "t3.small"
+      min_size      = 1
+      max_size      = 1
+      desired_size  = 1
+      disk_size     = 20
+    }
+    iceberg_rest_group = {
+      instance_type = "t3.small"
+      min_size      = 1
+      max_size      = 1
       desired_size  = 1
       disk_size     = 20
     }
   }
+}
+
+variable "postgres_password" {
+  description = "password"
+  type        = string
+  sensitive   = true
 }
 
 // Add more variables as needed

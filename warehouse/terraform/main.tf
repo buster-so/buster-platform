@@ -1,6 +1,6 @@
 // S3 Bucket
-resource "aws_s3_bucket" "my_bucket" {
-  bucket = "my-unique-bucket-name"
+resource "aws_s3_bucket" "warehouse_bucket" {
+  bucket = "buster-warehouse"
 }
 
 // VPC and Subnets
@@ -8,7 +8,7 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "3.14.0"
 
-  name = "my-vpc"
+  name = "buster-warehouse-vpc"
   cidr = var.vpc_cidr
 
   azs             = ["${var.region}a", "${var.region}b", "${var.region}c"]
@@ -91,12 +91,13 @@ module "vpc" {
   tags = {
     Terraform   = "true"
     Environment = "dev"
+    Project     = "buster-warehouse"
   }
 }
 
 // Security Group for Load Balancer
 resource "aws_security_group" "lb_sg" {
-  name_prefix = "eks-lb-sg"
+  name_prefix = "buster-warehouse-lb-sg"
   vpc_id      = module.vpc.vpc_id
 
   ingress {
@@ -124,13 +125,14 @@ resource "aws_security_group" "lb_sg" {
   }
 
   tags = {
-    Name = "eks-lb-sg"
+    Name    = "buster-warehouse-lb-sg"
+    Project = "buster-warehouse"
   }
 }
 
 // Security Group for Frontend Nodes
 resource "aws_security_group" "fe_sg" {
-  name_prefix = "eks-fe-sg"
+  name_prefix = "buster-warehouse-fe-sg"
   vpc_id      = module.vpc.vpc_id
 
   ingress {
@@ -150,13 +152,14 @@ resource "aws_security_group" "fe_sg" {
   }
 
   tags = {
-    Name = "eks-fe-sg"
+    Name    = "buster-warehouse-fe-sg"
+    Project = "buster-warehouse"
   }
 }
 
 // Security Group for Backend Nodes
 resource "aws_security_group" "be_sg" {
-  name_prefix = "eks-be-sg"
+  name_prefix = "buster-warehouse-be-sg"
   vpc_id      = module.vpc.vpc_id
 
   // Add rules as needed for backend communication
@@ -170,7 +173,8 @@ resource "aws_security_group" "be_sg" {
   }
 
   tags = {
-    Name = "eks-be-sg"
+    Name    = "buster-warehouse-be-sg"
+    Project = "buster-warehouse"
   }
 }
 
@@ -179,7 +183,7 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "18.26.3"
 
-  cluster_name    = var.cluster_name
+  cluster_name    = "buster-warehouse-${var.cluster_name}"
   cluster_version = "1.22"
 
   vpc_id     = module.vpc.vpc_id
@@ -201,10 +205,12 @@ module "eks" {
       labels = {
         NodeGroup = key
         NodeType  = value.instance_type
+        Project   = "buster-warehouse"
       }
 
       tags = {
         NodeGroup = key
+        Project   = "buster-warehouse"
       }
 
       vpc_security_group_ids = [
@@ -218,14 +224,15 @@ module "eks" {
 
 // Application Load Balancer
 resource "aws_lb" "eks_alb" {
-  name               = "eks-alb"
+  name               = "buster-warehouse-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.lb_sg.id]
   subnets            = module.vpc.public_subnets
 
   tags = {
-    Name = "eks-alb"
+    Name    = "buster-warehouse-alb"
+    Project = "buster-warehouse"
   }
 }
 
@@ -241,7 +248,7 @@ resource "aws_lb_listener" "front_end" {
 }
 
 resource "aws_lb_target_group" "fe_tg" {
-  name     = "fe-tg"
+  name     = "buster-warehouse-fe-tg"
   port     = 9030
   protocol = "HTTP"
   vpc_id   = module.vpc.vpc_id
@@ -263,7 +270,7 @@ resource "aws_autoscaling_attachment" "fe_asg_attachment" {
 // Kubernetes Deployment for Docker image
 resource "kubernetes_deployment" "example" {
   metadata {
-    name = "example-deployment"
+    name = "buster-warehouse-deployment"
   }
 
   spec {
@@ -301,13 +308,14 @@ resource "aws_vpc_endpoint" "s3" {
   route_table_ids   = module.vpc.private_route_table_ids
 
   tags = {
-    Name = "s3-endpoint"
+    Name    = "buster-warehouse-s3-endpoint"
+    Project = "buster-warehouse"
   }
 }
 
 // Update S3 bucket policy to allow access from the VPC Endpoint
 resource "aws_s3_bucket_policy" "allow_access_from_vpc" {
-  bucket = aws_s3_bucket.my_bucket.id
+  bucket = aws_s3_bucket.warehouse_bucket.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -318,8 +326,8 @@ resource "aws_s3_bucket_policy" "allow_access_from_vpc" {
         Principal = "*"
         Action    = "s3:*"
         Resource = [
-          aws_s3_bucket.my_bucket.arn,
-          "${aws_s3_bucket.my_bucket.arn}/*",
+          aws_s3_bucket.warehouse_bucket.arn,
+          "${aws_s3_bucket.warehouse_bucket.arn}/*",
         ]
         Condition = {
           StringEquals = {
@@ -333,7 +341,7 @@ resource "aws_s3_bucket_policy" "allow_access_from_vpc" {
 
 // Helm Release for StarRocks
 resource "helm_release" "starrocks" {
-  name       = "starrocks"
+  name       = "buster-warehouse-starrocks"
   repository = "https://starrocks.github.io/starrocks-kubernetes-operator"
   chart      = "starrocks-operator"
   namespace  = kubernetes_namespace.starrocks.metadata[0].name
@@ -348,8 +356,129 @@ resource "helm_release" "starrocks" {
 // Create a namespace for StarRocks
 resource "kubernetes_namespace" "starrocks" {
   metadata {
-    name = "starrocks"
+    name = "buster-warehouse-starrocks"
   }
 
   depends_on = [module.eks]
 }
+
+// Helm Release for PostgreSQL
+resource "helm_release" "postgresql" {
+  name       = "buster-warehouse-postgresql"
+  repository = "https://charts.bitnami.com/bitnami"
+  chart      = "postgresql"
+  namespace  = kubernetes_namespace.postgresql.metadata[0].name
+
+  set {
+    name  = "global.postgresql.auth.postgresPassword"
+    value = var.postgres_password
+  }
+
+  set {
+    name  = "primary.persistence.size"
+    value = "10Gi"
+  }
+
+  depends_on = [module.eks, kubernetes_namespace.postgresql]
+}
+
+// Create a namespace for PostgreSQL
+resource "kubernetes_namespace" "postgresql" {
+  metadata {
+    name = "buster-warehouse-postgresql"
+  }
+
+  depends_on = [module.eks]
+}
+
+// Helm Release for Iceberg REST
+resource "helm_release" "iceberg_rest" {
+  name       = "buster-warehouse-iceberg-rest"
+  repository = "https://charts.bitnami.com/bitnami"
+  chart      = "common"
+  namespace  = kubernetes_namespace.iceberg_rest.metadata[0].name
+
+  values = [
+    <<-EOT
+    replicaCount: 1
+    image:
+      repository: tabulario/iceberg-rest
+      tag: latest
+      pullPolicy: IfNotPresent
+    service:
+      type: ClusterIP
+      port: 8181
+    containerPort: 8181
+    env:
+      - name: AWS_ACCESS_KEY_ID
+        valueFrom:
+          secretKeyRef:
+            name: aws-credentials
+            key: aws-access-key-id
+      - name: AWS_SECRET_ACCESS_KEY
+        valueFrom:
+          secretKeyRef:
+            name: aws-credentials
+            key: aws-secret-access-key
+      - name: AWS_REGION
+        value: "${var.region}"
+      - name: CATALOG_WAREHOUSE
+        value: "${aws_s3_bucket.warehouse_bucket.id}"
+      - name: CATALOG_URI
+        value: "jdbc:postgresql://${helm_release.postgresql.name}-postgresql.${kubernetes_namespace.postgresql.metadata[0].name}.svc.cluster.local:5432/postgres"
+      - name: CATALOG_JDBC_USER
+        value: "postgres"
+      - name: CATALOG_JDBC_PASSWORD
+        value: "${var.postgres_password}"
+    EOT
+  ]
+
+  depends_on = [module.eks, kubernetes_namespace.iceberg_rest, helm_release.postgresql]
+}
+
+// Create a namespace for Iceberg REST
+resource "kubernetes_namespace" "iceberg_rest" {
+  metadata {
+    name = "buster-warehouse-iceberg-rest"
+  }
+
+  depends_on = [module.eks]
+}
+
+// ... existing code ...
+
+// Helm Release for Nginx Ingress Controller
+resource "helm_release" "nginx_ingress" {
+  name       = "buster-warehouse-nginx-ingress"
+  repository = "https://kubernetes.github.io/ingress-nginx"
+  chart      = "ingress-nginx"
+  namespace  = kubernetes_namespace.nginx_ingress.metadata[0].name
+
+  set {
+    name  = "controller.service.type"
+    value = "LoadBalancer"
+  }
+
+  set {
+    name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type"
+    value = "nlb"
+  }
+
+  set {
+    name  = "controller.service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-cross-zone-load-balancing-enabled"
+    value = "true"
+  }
+
+  depends_on = [module.eks, kubernetes_namespace.nginx_ingress]
+}
+
+// Create a namespace for Nginx Ingress
+resource "kubernetes_namespace" "nginx_ingress" {
+  metadata {
+    name = "buster-warehouse-nginx-ingress"
+  }
+
+  depends_on = [module.eks]
+}
+
+// ... rest of the existing code ...

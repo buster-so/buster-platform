@@ -1,7 +1,7 @@
 ![Buster GitHub Banner](/assets/image.png)
 
 <div align="center"><h1>Buster Warehouse</h1></div>
-<div align="center"><h4>A data warehouse built on Apache Iceberg and Starrocks</h4></div>
+<div align="center"><h4>A modern Warehouse/Lakehouse built on Apache Iceberg and Starrocks</h4></div>
 
 <div align="center">
    <div>
@@ -27,7 +27,7 @@
 
 ## Buster Warehouse Overview
 
-This project is a data warehouse built on Apache Iceberg and Starrocks. In working with our customers, we found that Snowflake, Bigquery, and other warehouse solutions were prohibitively expensive or slow in them being able to deploy AI-powered analytics at scale.
+In working with our customers, we found that Snowflake, Bigquery, and other warehouse solutions were prohibitively expensive or slow in them being able to deploy AI-powered analytics at scale.
 
 Additionaly, we found that having a close integration between the data warehouse and our AI-native BI tool allows for a better and more reliable data experience.
 

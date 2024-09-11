@@ -1,7 +1,7 @@
 ![Buster GitHub Banner](/assets/image.png)
 
-<div align="center"><h1>Buster Warehouse</h1></div>
-<div align="center"><h4>A modern Warehouse/Lakehouse built on Apache Iceberg and Starrocks</h4></div>
+<div align="center"><h1>The Buster Platform</h1></div>
+<div align="center"><h4>A modern analytics platform for AI-powered data applications</h4></div>
 
 <div align="center">
    <div>
@@ -20,113 +20,43 @@
 
    <div>
       <a href="https://github.com/buster-so/warehouse/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-red.svg?style=flat-square" alt="MIT License"></a>
-      <a href="https://www.ycombinator.com/companies/buster"><img src="https://img.shields.io/badge/Y%20Combinator-W24-orange?style=flat-square" alt="Y Combinator W23"></a>
+      <a href="https://www.ycombinator.com/companies/buster"><img src="https://img.shields.io/badge/Y%20Combinator-W24-orange?style=flat-square" alt="Y Combinator W24"></a>
    </div>
 </div>
 </br>
 
-## Buster Warehouse Overview
+## What is Buster?
 
-In working with our customers, we found that Snowflake, Bigquery, and other warehouse solutions were prohibitively expensive or slow in them being able to deploy AI-powered analytics at scale.
+Buster is a modern analytics platform built from the ground up with AI in mind.
 
-Additionaly, we found that having a close integration between the data warehouse and our AI-native BI tool allows for a better and more reliable data experience.
+We've spent the last two years working with companies to help them implement Large Language Models in their data stack.  This has mainly revolved around truly self-serve experiences that are powered by Large Language Models.  We've noticed a few pain points when it comes to the tools that are available today:
 
-### Key Features
+1. Slapping an AI copilot on top of existing BI tools can often result in a subpar experience for users. To deploy a powerful analytics experience, we believe that the entire app needs to be built from the ground up with AI in mind. 
+2. Most organizations can't deploy ad-hoc, self-serve experiences for their users because their warehousing costs/performance are too prohibitive.  We believe that new storage formats like Apache Iceberg and query engines like Starrocks and DuckDB have the potential to change data warehousing and make it more accessible for the type of workloads that come with AI-powered analytics experiences.
+3. The current CI/CD process for most analytics stacks struggle to keep up with changes and often result in broken dashboards, slow query performance, and other issues.  Introducing hundreds, if not thousands of user queries made with Large Language Models can exacerbate these issues and make it nearly impossible to maintain. We believe there is a huge opportunity to rethink how Large Language Models can be used to improve this process with workflows around self-healing, model suggestions, and more.
+4. Current tools don't have tooling or workflows built around augmenting data teams.  They are designed for the analyst to continue working as they did before, instead of helping them build powerful data experiences for their users.  We believe that instead of spending hours and hours building out unfulfilling dashboards, data teams should be empowered to build out powerful, self-serve experiences for their users.
 
-- **Built on Starrocks:** We felt that Starrock was the best query engine by default for our use case. The main thing that pushed us towards it was that they perform predicate pushdown on iceberg tables, whereas Clickhouse and DuckDB do not.  We were also impressed by the performance, caching system, and flexibility of Starrocks.
-- **Built on Apache Iceberg:** Some of the top companies in the world use Apache Iceberg for storing and interacting with their data.  We wanted a table format that not only brought tremendous benefits, but one that companies wouldn't outgrow.
-- **Bring Your Own Storage:** We felt that customers should own their data and not be locked into a particular storage engine.
-
-## Quickstart
-
-1. Dependencies:
-   - Make sure that you have [Docker Engine](https://docs.docker.com/engine/install/) installed.
-   - Install [Python](https://www.python.org/downloads/) if you haven't already.
-   - Install a [MySQL client](https://dev.mysql.com/downloads/mysql/) on your system.
-   - An AWS account with S3 access.
-
-2. Clone the repository:
-
-```bash
-git clone https://github.com/buster-so/warehouse.git
-```
-
-3. Run the warehouse:
-
-```bash
-docker compose up -d
-```
-
-4. Populate the `.env` file with AWS credentials provisioned for S3 access. **Note: You can use any S3 compatible storage, you might just need to tweak some of the configs.** Feel free to look at the Starrocks [docs](https://docs.starrocks.com/en-us/main/loading/iceberg/iceberg_external_catalog) or PyIceberg [docs](https://iceberg.apache.org/docs/latest/spark-configuration/) for more information.
-
-5. Connect to the warehouse with any MySQL client.
-
-6. Create the external catalog:
-
-```sql
-CREATE EXTERNAL CATALOG 'public'
-PROPERTIES
-(
-  "type"="iceberg",
-  "iceberg.catalog.type"="rest",
-  "iceberg.catalog.uri"="http://iceberg-rest:8181",
-  "iceberg.catalog.warehouse"="<BUCKET_NAME>",
-  "aws.s3.access_key"="<ACCESS_KEY>",
-  "aws.s3.secret_key"="<SECRET_KEY>",
-  "aws.s3.region" = "<REGION>",
-  "aws.s3.enable_path_style_access"="true",
-  "client.factory"="com.starrocks.connector.iceberg.IcebergAwsClientFactory"
-);
-```
-
-7. Seed the data. If you want to populate a table with 75m records, you can run the notebook found [here](/notebooks/populate_warehouse.ipynb).
-
-8. Set the catalog
-
-```sql
-SET CATALOG 'public';
-```
-
-9. Set the database
-
-```sql
-USE DATABASE 'public';
-```
-
-10. Run a query
-
-```sql
-SELECT COUNT(*) FROM public.nyc_taxi;
-```
-
-### Optimizations
-
-For data that you think will be accessed frequently, you can cache it on disk for faster access with:
-
-```sql
-CACHE SELECT * FROM public.nyc_taxi WHERE tpep_pickup_datetime > '2022-03-01';
-```
-
-## Deployment
-
-TODO
+Ultimately, we believe that the future of AI analytics is about helping data teams build powerful, self-serve experiences for their users. We think that requires a new approach to the analytics stack.  One that allows for deep integrations between products and allows data teams to truly own their entire experience.
 
 ## Roadmap
 
 Currently, we are in the process of open-sourcing the platform.  This includes:
 
-- Warehouse Product (This Repo) ✅
-- BI platform (https://buster.so) ⏰
+- [Warehouse](/warehouse) ✅
+- [BI platform](https://buster.so) ⏰
 
 After that, we will release an official roadmap.
 
 ## How We Plan to Make Money
 
 Currently, we offer a few commercial products:
-- Cloud-Hosted Version
-  - Cluster
-  - Serverless
-- Managed Self-Hosted Version
+
+- [Cloud-Hosted Versions](https://buster.so)
+  - Warehouse
+    - Cluster
+    - Serverless
+  - BI Platform
+- Managed Self-Hosted Version of the Warehouse product.
 
 ## Support and feedback
 
@@ -138,7 +68,3 @@ You can contact us through either:
 ## License
 
 This repository is MIT licensed, except for the `ee` folders. See [LICENSE](LICENSE) for more details.
-
-## Shoutouts
-
-The documentation from the Starrocks, Iceberg, and PyIceberg team has been very helpful in building this project.
